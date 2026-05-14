@@ -1,0 +1,13 @@
+# EU Medical Device Regulation (MDR) MCP - Auto-trigger Rules
+
+When the user asks about MDR, IVDR, medical device, SaMD, Notified Body, CE marking, EUDAMED, UDI, use mdr-medical-device-mcp tools:
+
+- **classify_medical_device**: MDR Annex VIII risk classification (Class I/IIa/IIb/III)
+- **classify_ivd**: IVDR Annex VIII IVD classification (Class A/B/C/D)
+- **samd_ai_ml_check**: AI/ML SaMD classification + IMDRF risk framework
+- **ce_marking_requirements**: MDR Article 19 CE marking + Notified Body involvement
+- **eudamed_registration**: EUDAMED UDI-DI + Basic UDI registration requirements
+
+Install: `pip install mdr-medical-device-mcp`
+
+By MEOK AI Labs — industry governance MCP. Pairs with meok-attestation-api for signed compliance certs.

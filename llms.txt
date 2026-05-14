@@ -1,0 +1,36 @@
+# mdr-medical-device-mcp
+# EU MDR (Reg 2017/745) and IVDR (Reg 2017/746) compliance for medical device + IVD manufacturers, including AI/ML SaMD classification.
+
+## Install
+```bash
+pip install mdr-medical-device-mcp
+```
+
+## Auth & Rate Limits
+- Free tier: 10 calls/day. No API key required.
+- Pro tier (£79/mo): unlimited + signed attestations.
+- Enterprise (£1,499/mo): white-label + on-premise.
+
+## Tools (5)
+
+### `classify_medical_device(query, api_key)`
+MDR Annex VIII risk classification (Class I/IIa/IIb/III)
+
+### `classify_ivd(query, api_key)`
+IVDR Annex VIII IVD classification (Class A/B/C/D)
+
+### `samd_ai_ml_check(query, api_key)`
+AI/ML SaMD classification + IMDRF risk framework
+
+### `ce_marking_requirements(query, api_key)`
+MDR Article 19 CE marking + Notified Body involvement
+
+### `eudamed_registration(query, api_key)`
+EUDAMED UDI-DI + Basic UDI registration requirements
+
+## Pairs with
+- `meok-attestation-api` — HMAC signing for compliance certs
+- `meok-attestation-verify` — public verification
+
+## Maintainer
+MEOK AI Labs · hello@meok.ai · https://meok.ai · MIT
