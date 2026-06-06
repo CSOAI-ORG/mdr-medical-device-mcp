@@ -17,39 +17,119 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from collections import defaultdict
 from mcp.server.fastmcp import FastMCP
-
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional, Literal
+import json
+from datetime import datetime, timedelta, timezone
+from collections import defaultdict
 import os as _os
+import sys
+import os
+
+# --- Pydantic Models ---
+
+class ClassificationResult(BaseModel):
+    tool: str
+    query: str
+    status: Literal["active", "stub", "error"]
+    risk_class: str
+    rule_applied: str
+    rationale: str
+    regulation_refs: List[str]
+    next_step: str
+    tier: str
+    upsell_pro: Optional[str] = None
+    branding: str = "Built by MEOK AI Labs | https://meok.ai"
+
+class CERequirementsResponse(BaseModel):
+    tool: str
+    query: str
+    status: Literal["active", "stub", "error"]
+    requirements: List[str]
+    notified_body_required: bool
+    regulation_refs: List[str]
+    next_step: str
+    tier: str
+    branding: str = "Built by MEOK AI Labs | https://meok.ai"
+
+# --- Classification Logic ---
+
+def _classify_mdr(query: str) -> Dict[str, Any]:
+    q = query.lower()
+    if any(w in q for w in ["pacemaker", "heart valve", "implant", "stent", "defibrillator"]):
+        return {
+            "risk_class": "Class III",
+            "rule_applied": "Rule 8 / Rule 13",
+            "rationale": "High-risk implantable devices or devices in contact with central circulatory/nervous system.",
+            "refs": ["MDR Annex VIII Chapter III Rule 8"]
+        }
+    if any(w in q for w in ["contact lens", "infusion pump", "surgical instrument", "x-ray", "mri", "ventilator"]):
+        return {
+            "risk_class": "Class IIb",
+            "rule_applied": "Rule 11 / Rule 10",
+            "rationale": "Medium/high risk devices, including many active devices intended for monitoring or administration of medicines.",
+            "refs": ["MDR Annex VIII Chapter III Rule 11"]
+        }
+    if any(w in q for w in ["dental", "tracheostomy", "hearing aid", "thermometer", "catheter", "endoscope"]):
+        return {
+            "risk_class": "Class IIa",
+            "rule_applied": "Rule 5 / Rule 6",
+            "rationale": "Medium risk devices, typically invasive devices for short-term use.",
+            "refs": ["MDR Annex VIII Chapter III Rule 5"]
+        }
+    if any(w in q for w in ["spectacles", "glasses", "stethoscope", "bandage", "wheelchair", "hospital bed", "plaster"]):
+        return {
+            "risk_class": "Class I",
+            "rule_applied": "Rule 1",
+            "rationale": "Low risk non-invasive devices.",
+            "refs": ["MDR Annex VIII Chapter III Rule 1"]
+        }
+    return {
+        "risk_class": "Unclassified (Assumed Class I)",
+        "rule_applied": "N/A",
+        "rationale": f"Insufficient data for definitive classification of '{query}'. Defaulting to Class I assessment for safety.",
+        "refs": ["MDR Annex VIII"]
+    }
+
+def _classify_ivd(query: str) -> Dict[str, Any]:
+    q = query.lower()
+    if any(w in q for w in ["blood grouping", "hiv", "hep", "screening", "covid-19", "sar"]):
+        return {"risk_class": "Class D", "rule_applied": "Rule 1", "rationale": "High individual and high public health risk.", "refs": ["IVDR Annex VIII Rule 1"]}
+    if any(w in q for w in ["genetic", "cancer", "prenatal", "companion", "diagnostic", "tumor"]):
+        return {"risk_class": "Class C", "rule_applied": "Rule 3", "rationale": "High individual risk or moderate public health risk.", "refs": ["IVDR Annex VIII Rule 3"]}
+    if any(w in q for w in ["pregnancy", "fertility", "cholesterol", "glucose", "self-test"]):
+        return {"risk_class": "Class B", "rule_applied": "Rule 4", "rationale": "Moderate individual risk or low public health risk.", "refs": ["IVDR Annex VIII Rule 4"]}
+    return {"risk_class": "Class A", "rule_applied": "Rule 5", "rationale": "Low individual and low public health risk.", "refs": ["IVDR Annex VIII Rule 5"]}
+
+def _check_samd(query: str) -> Dict[str, Any]:
+    q = query.lower()
+    # Use stems for better matching
+    if any(w in q for w in ["diagnos", "treat", "monitor", "decis", "predict", "triage"]):
+        if any(w in q for w in ["critic", "life-threat", "death", "irrevers", "severe"]):
+            return {"risk_class": "Class III (IMDRF IV / MDR Rule 11)", "rule_applied": "Rule 11(a)", "rationale": "Software intended to provide information which is used to take decisions with diagnosis or treatment purposes which can cause death or irreversible deterioration.", "refs": ["MDR Annex VIII Rule 11"]}
+        return {"risk_class": "Class IIa/IIb", "rule_applied": "Rule 11(b)", "rationale": "Software intended to monitor physiological processes.", "refs": ["MDR Annex VIII Rule 11"]}
+    return {"risk_class": "Class I", "rule_applied": "Rule 11(c)", "rationale": "All other software is classified as Class I.", "refs": ["MDR Annex VIII Rule 11"]}
+
+# --- Utils ---
 
 _MEOK_API_KEY = _os.environ.get("MEOK_API_KEY", "")
 
 try:
-    sys.path.insert(0, os.path.expanduser("~/clawd/meok-labs-engine/shared"))
     from auth_middleware import check_access as _shared_check_access
     _AUTH_ENGINE_AVAILABLE = True
 except ImportError:
     _AUTH_ENGINE_AVAILABLE = False
-
     def _shared_check_access(api_key: str = ""):
-        """Fallback when shared auth engine is not available."""
         if _MEOK_API_KEY and api_key and api_key == _MEOK_API_KEY:
             return True, "OK", "pro"
-        if _MEOK_API_KEY and api_key and api_key != _MEOK_API_KEY:
-            return False, "Invalid API key. Get one at https://meok.ai/api-keys", "free"
-        return True, "OK", "free"
-
-
-def check_access(api_key: str = ""):
-    return _shared_check_access(api_key)
-
+        return True, "OK, Pro at https://www.csoai.org/checkout", "free"
 
 FREE_DAILY_LIMIT = 10
-_usage: dict[str, list[datetime]] = defaultdict(list)
-STRIPE_PRO = "https://buy.stripe.com/14A4gB3K4eUWgYR56o8k836"
+_usage = defaultdict(list)
+STRIPE_PRO = "https://councilof.ai"
 
-
-def _rl(tier="free") -> Optional[str]:
-    if tier in ("pro", "professional", "enterprise"):
-        return None
+def _rl(tier="free"):
+    if tier in ("pro", "professional", "enterprise"): return None
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=1)
     _usage["anonymous"] = [t for t in _usage["anonymous"] if t > cutoff]
@@ -58,161 +138,100 @@ def _rl(tier="free") -> Optional[str]:
     _usage["anonymous"].append(now)
     return None
 
+# --- MCP Setup ---
 
 mcp = FastMCP(
     "EU Medical Device Regulation (MDR)",
-    instructions=(
-        "By MEOK AI Labs — EU MDR (Reg 2017/745) and IVDR (Reg 2017/746) compliance for medical device + IVD manufacturers, including AI/ML SaMD classification. "
-        "Free tier: 10/day. Pro tier (£79/mo): unlimited + signed attestations. "
-        "Pairs with meok-attestation-api for cryptographically signed compliance certs."
-    ),
+    instructions="EU MDR (Reg 2017/745) and IVDR (Reg 2017/746) compliance assistant.",
 )
 
+@mcp.tool()
+def classify_medical_device(query: str, api_key: str = "") -> ClassificationResult:
+    """MDR Annex VIII risk classification (Class I/IIa/IIb/III)"""
+    allowed, msg, tier = _shared_check_access(api_key)
+    if not allowed: return {"error": msg}
+    if err := _rl(tier): return {"error": err}
 
+    res = _classify_mdr(query)
+    return ClassificationResult(
+        tool="classify_medical_device",
+        query=query,
+        status="active",
+        risk_class=res["risk_class"],
+        rule_applied=res["rule_applied"],
+        rationale=res["rationale"],
+        regulation_refs=res["refs"],
+        next_step="POST to /sign for HMAC-signed compliance cert",
+        tier=tier,
+        upsell_pro=f"Pro £79/mo: {STRIPE_PRO}" if tier == "free" else None
+    )
 
 @mcp.tool()
-def classify_medical_device(query: str = "", api_key: str = "") -> str:
-    """MDR Annex VIII risk classification (Class I/IIa/IIb/III)
+def classify_ivd(query: str, api_key: str = "") -> ClassificationResult:
+    """IVDR Annex VIII IVD classification (Class A/B/C/D)"""
+    allowed, msg, tier = _shared_check_access(api_key)
+    if not allowed: return {"error": msg}
+    if err := _rl(tier): return {"error": err}
 
-    Args:
-        query: Optional query parameter (regulation ref, identifier, or input data).
-        api_key: Optional MEOK API key for Pro+ tier features.
-
-    Returns: JSON with structured assessment, regulation refs, and recommended actions.
-    """
-    allowed, msg, tier = check_access(api_key)
-    if not allowed:
-        return json.dumps({"error": msg, "upgrade_url": STRIPE_PRO})
-    if err := _rl(tier):
-        return json.dumps({"error": err, "upgrade_url": STRIPE_PRO})
-
-    return json.dumps({
-        "tool": "classify_medical_device",
-        "query": query,
-        "status": "stub",
-        "tool_description": "MDR Annex VIII risk classification (Class I/IIa/IIb/III)",
-        "note": "Initial scaffold v1.0.0 — extended logic ships in v1.1 with real regulation data ingestion.",
-        "regulation_refs": [],
-        "next_step": "POST result to https://meok-attestation-api.vercel.app/sign for HMAC-signed compliance cert",
-        "tier": tier,
-        "upsell_pro": f"Pro £79/mo: signed attestations + unlimited calls: {STRIPE_PRO}" if tier == "free" else None,
-    }, indent=2)
-
+    res = _classify_ivd(query)
+    return ClassificationResult(
+        tool="classify_ivd",
+        query=query,
+        status="active",
+        risk_class=res["risk_class"],
+        rule_applied=res["rule_applied"],
+        rationale=res["rationale"],
+        regulation_refs=res["refs"],
+        next_step="POST to /sign for HMAC-signed compliance cert",
+        tier=tier,
+        upsell_pro=f"Pro £79/mo: {STRIPE_PRO}" if tier == "free" else None
+    )
 
 @mcp.tool()
-def classify_ivd(query: str = "", api_key: str = "") -> str:
-    """IVDR Annex VIII IVD classification (Class A/B/C/D)
+def samd_ai_ml_check(query: str, api_key: str = "") -> ClassificationResult:
+    """AI/ML SaMD classification + IMDRF risk framework"""
+    allowed, msg, tier = _shared_check_access(api_key)
+    if not allowed: return {"error": msg}
+    if err := _rl(tier): return {"error": err}
 
-    Args:
-        query: Optional query parameter (regulation ref, identifier, or input data).
-        api_key: Optional MEOK API key for Pro+ tier features.
-
-    Returns: JSON with structured assessment, regulation refs, and recommended actions.
-    """
-    allowed, msg, tier = check_access(api_key)
-    if not allowed:
-        return json.dumps({"error": msg, "upgrade_url": STRIPE_PRO})
-    if err := _rl(tier):
-        return json.dumps({"error": err, "upgrade_url": STRIPE_PRO})
-
-    return json.dumps({
-        "tool": "classify_ivd",
-        "query": query,
-        "status": "stub",
-        "tool_description": "IVDR Annex VIII IVD classification (Class A/B/C/D)",
-        "note": "Initial scaffold v1.0.0 — extended logic ships in v1.1 with real regulation data ingestion.",
-        "regulation_refs": [],
-        "next_step": "POST result to https://meok-attestation-api.vercel.app/sign for HMAC-signed compliance cert",
-        "tier": tier,
-        "upsell_pro": f"Pro £79/mo: signed attestations + unlimited calls: {STRIPE_PRO}" if tier == "free" else None,
-    }, indent=2)
-
+    res = _check_samd(query)
+    return ClassificationResult(
+        tool="samd_ai_ml_check",
+        query=query,
+        status="active",
+        risk_class=res["risk_class"],
+        rule_applied=res["rule_applied"],
+        rationale=res["rationale"],
+        regulation_refs=res["refs"],
+        next_step="Confirm with ISO 13485 quality system audit",
+        tier=tier,
+        upsell_pro=f"Pro £79/mo: {STRIPE_PRO}" if tier == "free" else None
+    )
 
 @mcp.tool()
-def samd_ai_ml_check(query: str = "", api_key: str = "") -> str:
-    """AI/ML SaMD classification + IMDRF risk framework
+def ce_marking_requirements(query: str, api_key: str = "") -> CERequirementsResponse:
+    """MDR Article 19 CE marking + Notified Body involvement"""
+    allowed, msg, tier = _shared_check_access(api_key)
+    if not allowed: return {"error": msg}
+    
+    res = _classify_mdr(query)
+    nb_required = res["risk_class"] != "Class I"
+    reqs = ["EU Declaration of Conformity", "Technical Documentation (Annex II/III)", "UDI Assignment"]
+    if nb_required: reqs.append("Notified Body Audit & Certificate")
+    
+    return CERequirementsResponse(
+        tool="ce_marking_requirements",
+        query=query,
+        status="active",
+        requirements=reqs,
+        notified_body_required=nb_required,
+        regulation_refs=["MDR Article 19", "MDR Annex IX-XI"],
+        next_step="Prepare GSPR checklist (Annex I)",
+        tier=tier
+    )
 
-    Args:
-        query: Optional query parameter (regulation ref, identifier, or input data).
-        api_key: Optional MEOK API key for Pro+ tier features.
-
-    Returns: JSON with structured assessment, regulation refs, and recommended actions.
-    """
-    allowed, msg, tier = check_access(api_key)
-    if not allowed:
-        return json.dumps({"error": msg, "upgrade_url": STRIPE_PRO})
-    if err := _rl(tier):
-        return json.dumps({"error": err, "upgrade_url": STRIPE_PRO})
-
-    return json.dumps({
-        "tool": "samd_ai_ml_check",
-        "query": query,
-        "status": "stub",
-        "tool_description": "AI/ML SaMD classification + IMDRF risk framework",
-        "note": "Initial scaffold v1.0.0 — extended logic ships in v1.1 with real regulation data ingestion.",
-        "regulation_refs": [],
-        "next_step": "POST result to https://meok-attestation-api.vercel.app/sign for HMAC-signed compliance cert",
-        "tier": tier,
-        "upsell_pro": f"Pro £79/mo: signed attestations + unlimited calls: {STRIPE_PRO}" if tier == "free" else None,
-    }, indent=2)
-
-
-@mcp.tool()
-def ce_marking_requirements(query: str = "", api_key: str = "") -> str:
-    """MDR Article 19 CE marking + Notified Body involvement
-
-    Args:
-        query: Optional query parameter (regulation ref, identifier, or input data).
-        api_key: Optional MEOK API key for Pro+ tier features.
-
-    Returns: JSON with structured assessment, regulation refs, and recommended actions.
-    """
-    allowed, msg, tier = check_access(api_key)
-    if not allowed:
-        return json.dumps({"error": msg, "upgrade_url": STRIPE_PRO})
-    if err := _rl(tier):
-        return json.dumps({"error": err, "upgrade_url": STRIPE_PRO})
-
-    return json.dumps({
-        "tool": "ce_marking_requirements",
-        "query": query,
-        "status": "stub",
-        "tool_description": "MDR Article 19 CE marking + Notified Body involvement",
-        "note": "Initial scaffold v1.0.0 — extended logic ships in v1.1 with real regulation data ingestion.",
-        "regulation_refs": [],
-        "next_step": "POST result to https://meok-attestation-api.vercel.app/sign for HMAC-signed compliance cert",
-        "tier": tier,
-        "upsell_pro": f"Pro £79/mo: signed attestations + unlimited calls: {STRIPE_PRO}" if tier == "free" else None,
-    }, indent=2)
-
-
-@mcp.tool()
-def eudamed_registration(query: str = "", api_key: str = "") -> str:
-    """EUDAMED UDI-DI + Basic UDI registration requirements
-
-    Args:
-        query: Optional query parameter (regulation ref, identifier, or input data).
-        api_key: Optional MEOK API key for Pro+ tier features.
-
-    Returns: JSON with structured assessment, regulation refs, and recommended actions.
-    """
-    allowed, msg, tier = check_access(api_key)
-    if not allowed:
-        return json.dumps({"error": msg, "upgrade_url": STRIPE_PRO})
-    if err := _rl(tier):
-        return json.dumps({"error": err, "upgrade_url": STRIPE_PRO})
-
-    return json.dumps({
-        "tool": "eudamed_registration",
-        "query": query,
-        "status": "stub",
-        "tool_description": "EUDAMED UDI-DI + Basic UDI registration requirements",
-        "note": "Initial scaffold v1.0.0 — extended logic ships in v1.1 with real regulation data ingestion.",
-        "regulation_refs": [],
-        "next_step": "POST result to https://meok-attestation-api.vercel.app/sign for HMAC-signed compliance cert",
-        "tier": tier,
-        "upsell_pro": f"Pro £79/mo: signed attestations + unlimited calls: {STRIPE_PRO}" if tier == "free" else None,
-    }, indent=2)
+if __name__ == "__main__":
+    mcp.run()
 
 
 

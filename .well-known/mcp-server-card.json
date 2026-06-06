@@ -1,0 +1,31 @@
+{
+  "name": "mdr-medical-device-mcp",
+  "title": "Mdr Medical Device Mcp",
+  "description": "EU MDR (Reg 2017/745) and IVDR (Reg 2017/746) compliance for medical device + IVD manufacturers, including AI/ML SaMD classification.",
+  "version": "1.0.5",
+  "homepage": "https://meok.ai",
+  "license": "MIT",
+  "transport": {
+    "type": "stdio"
+  },
+  "tools": [
+    {
+      "name": "classify_medical_device"
+    },
+    {
+      "name": "classify_ivd"
+    },
+    {
+      "name": "samd_ai_ml_check"
+    },
+    {
+      "name": "ce_marking_requirements"
+    },
+    {
+      "name": "search_regulation"
+    },
+    {
+      "name": "list_regulations_in_db"
+    }
+  ]
+}

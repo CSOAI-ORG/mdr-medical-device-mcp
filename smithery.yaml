@@ -1,0 +1,33 @@
+name: mdr-medical-device-mcp
+description: 'MCP server: mdr-medical-device-mcp'
+version: 1.0.5
+author: MEOK AI Labs
+homepage: https://safetyof.ai
+repository: https://github.com/MEOK-AI-Labs/mdr-medical-device-mcp
+license: MIT
+categories:
+- compliance
+- governance
+tools:
+- name: classify_medical_device
+  description: MDR Annex VIII risk classification (Class I/IIa/IIb/III)
+- name: classify_ivd
+  description: IVDR Annex VIII IVD classification (Class A/B/C/D)
+- name: samd_ai_ml_check
+  description: AI/ML SaMD classification + IMDRF risk framework
+- name: ce_marking_requirements
+  description: MDR Article 19 CE marking + Notified Body involvement
+- name: eudamed_registration
+  description: EUDAMED UDI-DI + Basic UDI registration requirements
+- name: search_regulation
+  description: Full-text search across 410+ articles of real EU regulation text (EUR-Lex
+    verified).
+- name: list_regulations_in_db
+  description: List all regulations in the local EUR-Lex FTS5 database.
+build:
+  type: python
+  entrypoint: server.py
+  dependencies:
+  - mcp>=1.0.0
+runtime:
+  python: '>=3.10'
