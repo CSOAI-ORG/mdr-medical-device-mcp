@@ -1,0 +1,77 @@
+{
+  "name": "mdr-medical-device-mcp",
+  "description": "EU MDR (Reg 2017/745) and IVDR (Reg 2017/746) compliance for medical device + IVD manufacturers...",
+  "url": "https://proofof.ai/scorecard/mdr-medical-device-mcp.html",
+  "version": "1.0.5",
+  "protocolVersion": "0.2.0",
+  "provider": {
+    "organization": "MEOK AI Labs",
+    "url": "https://meok.ai"
+  },
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false
+  },
+  "defaultInputModes": [
+    "text"
+  ],
+  "defaultOutputModes": [
+    "text"
+  ],
+  "skills": [
+    {
+      "id": "classify_medical_device",
+      "name": "Classify Medical Device",
+      "description": "classify_medical_device via mdr-medical-device-mcp",
+      "tags": [
+        "mcp",
+        "compliance"
+      ]
+    },
+    {
+      "id": "classify_ivd",
+      "name": "Classify Ivd",
+      "description": "classify_ivd via mdr-medical-device-mcp",
+      "tags": [
+        "mcp",
+        "compliance"
+      ]
+    },
+    {
+      "id": "samd_ai_ml_check",
+      "name": "Samd Ai Ml Check",
+      "description": "samd_ai_ml_check via mdr-medical-device-mcp",
+      "tags": [
+        "mcp",
+        "compliance"
+      ]
+    },
+    {
+      "id": "ce_marking_requirements",
+      "name": "Ce Marking Requirements",
+      "description": "ce_marking_requirements via mdr-medical-device-mcp",
+      "tags": [
+        "mcp",
+        "compliance"
+      ]
+    },
+    {
+      "id": "search_regulation",
+      "name": "Search Regulation",
+      "description": "search_regulation via mdr-medical-device-mcp",
+      "tags": [
+        "mcp",
+        "compliance"
+      ]
+    },
+    {
+      "id": "list_regulations_in_db",
+      "name": "List Regulations In Db",
+      "description": "list_regulations_in_db via mdr-medical-device-mcp",
+      "tags": [
+        "mcp",
+        "compliance"
+      ]
+    }
+  ]
+}

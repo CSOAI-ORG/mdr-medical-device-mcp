@@ -1,0 +1,24 @@
+{
+  "acpVersion": "0.1",
+  "agent": {
+    "name": "mdr-medical-device-mcp",
+    "description": "EU MDR (Reg 2017/745) and IVDR (Reg 2017/746) compliance for medical device + IVD manufacturers...",
+    "version": "1.0.5",
+    "provider": "MEOK AI Labs",
+    "interfaces": [
+      {
+        "type": "mcp",
+        "transport": "stdio",
+        "package": "mdr-medical-device-mcp"
+      }
+    ],
+    "capabilities": [
+      "classify_medical_device",
+      "classify_ivd",
+      "samd_ai_ml_check",
+      "ce_marking_requirements",
+      "search_regulation",
+      "list_regulations_in_db"
+    ]
+  }
+}
