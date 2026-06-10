@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "mdr-medical-device-mcp"
 readme = "README.md"
-version = "1.0.5"
+version = "1.0.6"
 description = "EU MDR (Reg 2017/745) and IVDR (Reg 2017/746) compliance for medical device + IVD manufacturers, including AI/ML SaMD classification."
 license = {file = "LICENSE"}
 requires-python = ">=3.10"
